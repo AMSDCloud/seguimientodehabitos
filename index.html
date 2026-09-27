@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Seguimiento de Hábitos</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Roboto, Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 20px;
+    color: #222;
+  }
+  .contenedor {
+    max-width: 640px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitulo { color: #666; font-size: 14px; margin-bottom: 20px; text-transform: capitalize; }
+  .habito {
+    border: 1px solid #e3e6ea;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: .2s;
+  }
+  .habito-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .nombre { font-weight: 600; font-size: 16px; }
+  .toggle { display: flex; gap: 8px; }
+  .toggle button {
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 8px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: .15s;
+    font-weight: 600;
+  }
+  .toggle button.activo-si {
+    background: #16a34a; color: #fff; border-color: #16a34a;
+  }
+  .toggle button.activo-no {
+    background: #dc2626; color: #fff; border-color: #dc2626;
+  }
+  .motivo {
+    margin-top: 12px;
+    display: none;
+  }
+  .motivo.visible { display: block; }
+  .motivo textarea {
+    width: 100%;
+    min-height: 60px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+  }
+  .enviar {
+    width: 100%;
+    padding: 14px;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 12px;
+  }
+  .enviar:disabled { background: #94a3b8; cursor: not-allowed; }
+  .estado { text-align: center; margin-top: 14px; font-size: 14px; }
+  .ok { color: #16a34a; }
+  .error { color: #dc2626; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <h1>🌱 Seguimiento de Hábitos</h1>
+  <div class="subtitulo" id="fechaHoy"></div>
+  <div id="listaHabitos"></div>
+  <button class="enviar" id="btnEnviar" onclick="enviar()">Guardar registros</button>
+  <div class="estado" id="estado"></div>
+</div>
+
+<script>
+  // Emojis por hábito (coinciden con los de la hoja "Hábitos")
+  const EMOJIS = {
+    'Leer 15 min':         '📖',
+    'Leer Biblia 15 min':  '✝️',
+    'Hacer ejercicio':     '💪',
+    'Correr':              '🏃'
+  };
+
+  let habitos = [];
+  const respuestas = {};
+
+  document.getElementById('fechaHoy').textContent =
+    new Date().toLocaleDateString('es-AR', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+  // Cargamos los hábitos desde la hoja
+  google.script.run
+    .withSuccessHandler(renderHabitos)
+    .withFailureHandler(e => mostrarEstado('Error al cargar hábitos: ' + e.message, 'error'))
+    .getHabitos();
+
+  function renderHabitos(lista) {
+    habitos = lista;
+    const cont = document.getElementById('listaHabitos');
+    if (!habitos.length) {
+      cont.innerHTML = '<p>No hay hábitos activos en la hoja "Hábitos".</p>';
+      return;
+    }
+    cont.innerHTML = habitos.map((h, i) => `
+      <div class="habito">
+        <div class="habito-header">
+          <div class="nombre">${EMOJIS[h] || '•'} ${h}</div>
+          <div class="toggle">
+            <button id="si-${i}" onclick="marcar(${i}, true)">Sí</button>
+            <button id="no-${i}" onclick="marcar(${i}, false)">No</button>
+          </div>
+        </div>
+        <div class="motivo" id="motivo-${i}">
+          <textarea id="txt-${i}" placeholder="¿Por qué no pudiste cumplirlo?"></textarea>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function marcar(i, cumplido) {
+    const h = habitos[i];
+    respuestas[h] = { cumplido, motivo: respuestas[h]?.motivo || '' };
+    document.getElementById('si-' + i).className = cumplido ? 'activo-si' : '';
+    document.getElementById('no-' + i).className = !cumplido ? 'activo-no' : '';
+    document.getElementById('motivo-' + i).classList.toggle('visible', !cumplido);
+  }
+
+  function enviar() {
+    for (const h of habitos) {
+      if (!respuestas[h]) {
+        mostrarEstado('Falta marcar: ' + h, 'error');
+        return;
+      }
+      if (!respuestas[h].cumplido) {
+        const i = habitos.indexOf(h);
+        respuestas[h].motivo = document.getElementById('txt-' + i).value.trim();
+      }
+    }
+    const payload = habitos.map(h => ({
+      habito: h,
+      cumplido: respuestas[h].cumplido,
+      motivo: respuestas[h].motivo
+    }));
+
+    const btn = document.getElementById('btnEnviar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+    mostrarEstado('', '');
+
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.ok) {
+          mostrarEstado('✅ Guardado correctamente (' + res.filas + ' registros)', 'ok');
+          btn.textContent = 'Guardado';
+        } else {
+          mostrarEstado('Error: ' + res.error, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Guardar registros';
+        }
+      })
+      .withFailureHandler(e => {
+        mostrarEstado('Error: ' + e.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Guardar registros';
+      })
+      .guardarRegistros(payload);
+  }
+
+  function mostrarEstado(msg, clase) {
+    const el = document.getElementById('estado');
+    el.textContent = msg;
+    el.className = 'estado ' + (clase || '');
+  }
+</script>
+</body>
+</html>
