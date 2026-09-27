@@ -55,16 +55,13 @@
     new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   // Cargar hábitos (GET)
-  fetch(URL_APPS_SCRIPT, { method: 'GET' })
-    .then(res => res.json())
-    .then(res => {
-      if (!res.ok) { mostrarEstado('Error del servidor: ' + res.error, 'error'); return; }
-      renderHabitos(res.habitos);
-    })
-    .catch(err => {
-      mostrarEstado('❌ Error de conexión: ' + err.message, 'error');
-      mostrarDebug('Detalle: ' + err);
-    });
+  fetch(URL_APPS_SCRIPT, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'text/plain;charset=utf-8'  // ← ESTO es lo que evita el preflight
+  },
+  body: JSON.stringify({ respuestas: payload })
+})
 
   function renderHabitos(lista) {
     habitos = lista;
