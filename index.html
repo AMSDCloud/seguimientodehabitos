@@ -5,50 +5,39 @@
 <title>Seguimiento de Hábitos</title>
 <style>
   * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, Roboto, Arial, sans-serif;
-    background: #f4f6f8; margin: 0; padding: 20px; color: #222;
-  }
-  .contenedor {
-    max-width: 640px; margin: 0 auto; background: #fff;
-    border-radius: 12px; padding: 24px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.08);
-  }
+  body { font-family: -apple-system, Roboto, Arial, sans-serif;
+         background: #f4f6f8; margin: 0; padding: 20px; color: #222; }
+  .contenedor { max-width: 640px; margin: 0 auto; background: #fff;
+                border-radius: 12px; padding: 24px;
+                box-shadow: 0 4px 20px rgba(0,0,0,.08); }
   h1 { font-size: 22px; margin: 0 0 4px; }
   .subtitulo { color: #666; font-size: 14px; margin-bottom: 20px; text-transform: capitalize; }
-  .habito {
-    border: 1px solid #e3e6ea; border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 12px;
-  }
-  .habito-header {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap;
-  }
+  .habito { border: 1px solid #e3e6ea; border-radius: 10px;
+            padding: 14px 16px; margin-bottom: 12px; }
+  .habito-header { display: flex; align-items: center; justify-content: space-between;
+                   gap: 12px; flex-wrap: wrap; }
   .nombre { font-weight: 600; font-size: 16px; }
   .toggle { display: flex; gap: 8px; }
-  .toggle button {
-    border: 1px solid #ccc; background: #fff; border-radius: 8px;
-    padding: 6px 16px; cursor: pointer; font-size: 14px;
-    font-weight: 600; transition: .15s;
-  }
+  .toggle button { border: 1px solid #ccc; background: #fff; border-radius: 8px;
+                   padding: 6px 16px; cursor: pointer; font-size: 14px;
+                   font-weight: 600; transition: .15s; }
   .toggle button.activo-si { background: #16a34a; color: #fff; border-color: #16a34a; }
   .toggle button.activo-no { background: #dc2626; color: #fff; border-color: #dc2626; }
   .motivo { margin-top: 12px; display: none; }
   .motivo.visible { display: block; }
-  .motivo textarea {
-    width: 100%; min-height: 60px; border: 1px solid #ccc;
-    border-radius: 8px; padding: 8px; font-family: inherit;
-    font-size: 14px; resize: vertical;
-  }
-  .enviar {
-    width: 100%; padding: 14px; background: #2563eb; color: #fff;
-    border: none; border-radius: 10px; font-size: 16px;
-    font-weight: 600; cursor: pointer; margin-top: 12px;
-  }
+  .motivo textarea { width: 100%; min-height: 60px; border: 1px solid #ccc;
+                     border-radius: 8px; padding: 8px; font-family: inherit;
+                     font-size: 14px; resize: vertical; }
+  .enviar { width: 100%; padding: 14px; background: #2563eb; color: #fff;
+            border: none; border-radius: 10px; font-size: 16px;
+            font-weight: 600; cursor: pointer; margin-top: 12px; }
   .enviar:disabled { background: #94a3b8; cursor: not-allowed; }
   .estado { text-align: center; margin-top: 14px; font-size: 14px; }
   .ok { color: #16a34a; }
-  .error { color: #dc2626; }
+  .error { color: #dc2626; white-space: pre-wrap; }
+  .debug { background: #fff3cd; color: #664d03; padding: 10px;
+           border-radius: 8px; font-size: 12px; margin-top: 12px;
+           white-space: pre-wrap; display: none; }
 </style>
 </head>
 <body>
@@ -58,6 +47,7 @@
   <div id="listaHabitos">Cargando hábitos…</div>
   <button class="enviar" id="btnEnviar" onclick="enviar()" disabled>Guardar registros</button>
   <div class="estado" id="estado"></div>
+  <div class="debug" id="debug"></div>
 </div>
 
 <script>
@@ -76,17 +66,37 @@
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
+  // TIMEOUT de seguridad: si en 15s no respondió, mostramos algo
+  const timeoutId = setTimeout(() => {
+    mostrarEstado('⚠️ Sin respuesta del servidor después de 15s. ' +
+                  'Probablemente falte autorizar permisos o publicar nueva versión. ' +
+                  'Mirá la consola (F12) para el error real.', 'error');
+  }, 15000);
+
+  function mostrarDebug(msg) {
+    const d = document.getElementById('debug');
+    d.style.display = 'block';
+    d.textContent = msg;
+  }
+
   google.script.run
     .withSuccessHandler(res => {
+      clearTimeout(timeoutId);
+      if (!res || typeof res !== 'object') {
+        mostrarEstado('Respuesta inesperada del servidor: ' + JSON.stringify(res), 'error');
+        mostrarDebug('Respuesta cruda: ' + JSON.stringify(res));
+        return;
+      }
       if (!res.ok) {
-        mostrarEstado('Error: ' + res.error, 'error');
-        document.getElementById('listaHabitos').innerHTML = '';
+        mostrarEstado('Error del servidor: ' + res.error, 'error');
         return;
       }
       renderHabitos(res.habitos);
     })
     .withFailureHandler(e => {
-      mostrarEstado('Error al conectar: ' + e.message, 'error');
+      clearTimeout(timeoutId);
+      mostrarEstado('❌ Error de conexión con Apps Script: ' + (e && e.message ? e.message : e), 'error');
+      mostrarDebug('Detalle: ' + JSON.stringify(e, null, 2));
     })
     .getHabitos();
 
@@ -94,7 +104,7 @@
     habitos = lista;
     const cont = document.getElementById('listaHabitos');
     if (!habitos.length) {
-      cont.innerHTML = '<p>No hay hábitos activos. Revisá la hoja "Hábitos" (columna B debe decir SI).</p>';
+      cont.innerHTML = '<p>La hoja "Hábitos" existe pero no tiene filas con <b>SI</b> en la columna B.</p>';
       return;
     }
     cont.innerHTML = habitos.map((h, i) => `
@@ -124,24 +134,18 @@
 
   function enviar() {
     for (const h of habitos) {
-      if (!respuestas[h]) {
-        mostrarEstado('Falta marcar: ' + h, 'error');
-        return;
-      }
+      if (!respuestas[h]) { mostrarEstado('Falta marcar: ' + h, 'error'); return; }
       if (!respuestas[h].cumplido) {
         const i = habitos.indexOf(h);
         respuestas[h].motivo = document.getElementById('txt-' + i).value.trim();
       }
     }
     const payload = habitos.map(h => ({
-      habito: h,
-      cumplido: respuestas[h].cumplido,
-      motivo: respuestas[h].motivo
+      habito: h, cumplido: respuestas[h].cumplido, motivo: respuestas[h].motivo
     }));
 
     const btn = document.getElementById('btnEnviar');
-    btn.disabled = true;
-    btn.textContent = 'Guardando...';
+    btn.disabled = true; btn.textContent = 'Guardando...';
     mostrarEstado('', '');
 
     google.script.run
@@ -151,14 +155,12 @@
           btn.textContent = 'Guardado';
         } else {
           mostrarEstado('Error: ' + res.error, 'error');
-          btn.disabled = false;
-          btn.textContent = 'Guardar registros';
+          btn.disabled = false; btn.textContent = 'Guardar registros';
         }
       })
       .withFailureHandler(e => {
-        mostrarEstado('Error: ' + e.message, 'error');
-        btn.disabled = false;
-        btn.textContent = 'Guardar registros';
+        mostrarEstado('Error: ' + (e && e.message ? e.message : e), 'error');
+        btn.disabled = false; btn.textContent = 'Guardar registros';
       })
       .guardarRegistros(payload);
   }
