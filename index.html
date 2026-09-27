@@ -53,12 +53,15 @@
   document.getElementById('fechaHoy').textContent =
     new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  // ---- CARGAR HÁBITOS (con fetch) ----
-      fetch(URL_APPS_SCRIPT, {
+     // En tu función enviar()
+    fetch(URL_APPS_SCRIPT, {
       method: 'POST',
+      // No incluyas 'Content-Type': 'application/json' aquí.
+      // Al no especificarlo, fetch usa text/plain por defecto.
       body: JSON.stringify({ respuestas: payload })
     })
     .then(res => res.json())
+    // ... el resto de tu lógica ...
     // ... el resto sigue igual
 
   function renderHabitos(lista) {
