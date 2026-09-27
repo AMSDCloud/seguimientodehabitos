@@ -55,18 +55,29 @@
     new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   // Cargar hábitos (GET)
-  fetch(URL_APPS_SCRIPT, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'text/plain;charset=utf-8'  // ← ESTO es lo que evita el preflight
-  },
-  body: JSON.stringify({ respuestas: payload })
-})
+  fetch(URL_APPS_SCRIPT, { method: 'GET' })
+    .then(res => res.json())
+    .then(res => {
+      if (!res.ok) {
+        mostrarEstado('Error del servidor: ' + res.error, 'error');
+        document.getElementById('listaHabitos').innerHTML = '';
+        return;
+      }
+      renderHabitos(res.habitos);
+    })
+    .catch(err => {
+      mostrarEstado('❌ Error de conexión: ' + err.message, 'error');
+      mostrarDebug('Detalle: ' + err);
+      document.getElementById('listaHabitos').innerHTML = '';
+    });
 
   function renderHabitos(lista) {
     habitos = lista;
     const cont = document.getElementById('listaHabitos');
-    if (!habitos.length) { cont.innerHTML = '<p>No hay hábitos activos en la hoja "Hábitos".</p>'; return; }
+    if (!habitos.length) {
+      cont.innerHTML = '<p>No hay hábitos activos en la hoja "Hábitos".</p>';
+      return;
+    }
     cont.innerHTML = habitos.map((h, i) => `
       <div class="habito">
         <div class="habito-header">
@@ -86,49 +97,58 @@
 
   function marcar(i, cumplido) {
     const h = habitos[i];
-    respuestas[h] = { cumplido, motivo: respuestas[h]?.motivo || '' };
+    respuestas[h] = { cumplido: cumplido, motivo: respuestas[h] ? respuestas[h].motivo : '' };
     document.getElementById('si-' + i).className = cumplido ? 'activo-si' : '';
     document.getElementById('no-' + i).className = !cumplido ? 'activo-no' : '';
     document.getElementById('motivo-' + i).classList.toggle('visible', !cumplido);
   }
 
-  // Enviar registros (POST)
   function enviar() {
+    // Validar y construir payload
     for (const h of habitos) {
-      if (!respuestas[h]) { mostrarEstado('Falta marcar: ' + h, 'error'); return; }
+      if (!respuestas[h]) {
+        mostrarEstado('Falta marcar: ' + h, 'error');
+        return;
+      }
       if (!respuestas[h].cumplido) {
         const i = habitos.indexOf(h);
         respuestas[h].motivo = document.getElementById('txt-' + i).value.trim();
       }
     }
+
     const payload = habitos.map(h => ({
-      habito: h, cumplido: respuestas[h].cumplido, motivo: respuestas[h].motivo
+      habito: h,
+      cumplido: respuestas[h].cumplido,
+      motivo: respuestas[h].motivo
     }));
 
     const btn = document.getElementById('btnEnviar');
-    btn.disabled = true; btn.textContent = 'Guardando...';
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
     mostrarEstado('', '');
+    document.getElementById('debug').style.display = 'none';
 
-    // ✅ CLAVE: Usar Content-Type: 'text/plain;charset=utf-8'
-    // Esto evita el preflight OPTIONS que causa el error CORS.
     fetch(URL_APPS_SCRIPT, {
       method: 'POST',
-      mode: 'no-cors', // Añadido para permitir la petición, pero no leer la respuesta
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ respuestas: payload })
     })
-    .then(() => {
-      // Nota: con 'no-cors' no podemos leer la respuesta del servidor.
-      // Asumimos éxito si no hay error de red.
-      mostrarEstado('✅ Datos enviados. Revisá tu planilla para confirmar.', 'ok');
-      btn.textContent = 'Guardado';
+    .then(res => res.json())
+    .then(res => {
+      if (res.ok) {
+        mostrarEstado('✅ Guardado correctamente (' + res.filas + ' registros)', 'ok');
+        btn.textContent = 'Guardado';
+      } else {
+        mostrarEstado('Error del servidor: ' + res.error, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Guardar registros';
+      }
     })
     .catch(err => {
       mostrarEstado('❌ Error al guardar: ' + err.message, 'error');
       mostrarDebug('Detalle: ' + err);
-      btn.disabled = false; btn.textContent = 'Guardar registros';
+      btn.disabled = false;
+      btn.textContent = 'Guardar registros';
     });
   }
 
