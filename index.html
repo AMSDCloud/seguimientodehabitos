@@ -3,166 +3,160 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Seguimiento de Hábitos</title>
+<title>Mis hábitos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg: #EEF1EC; --card: #FFFFFF; --ink: #1E2B2A; --muted: #5F6E6B; --line: #D5DCD6;
+    --si: #2E7D5B; --si-bg: #E1F1E8; --no: #B4443A; --no-bg: #F8E4E1; --focus: #1E5FA8;
+  }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; color: #222; -webkit-font-smoothing: antialiased; }
-  .contenedor { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .subtitulo { color: #666; font-size: 14px; margin-bottom: 20px; text-transform: capitalize; }
-  .habito { border: 1px solid #e3e6ea; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
-  .habito-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .nombre { font-weight: 600; font-size: 16px; }
-  .toggle { display: flex; gap: 8px; }
-  .toggle button { border: 1px solid #ccc; background: #fff; border-radius: 8px; padding: 8px 18px; cursor: pointer; font-size: 14px; font-weight: 600; transition: .15s; -webkit-tap-highlight-color: transparent; }
-  .toggle button.activo-si { background: #16a34a; color: #fff; border-color: #16a34a; }
-  .toggle button.activo-no { background: #dc2626; color: #fff; border-color: #dc2626; }
-  .motivo { margin-top: 12px; display: none; }
-  .motivo.visible { display: block; }
-  .motivo textarea { width: 100%; min-height: 60px; border: 1px solid #ccc; border-radius: 8px; padding: 8px; font-family: inherit; font-size: 14px; resize: vertical; }
-  .enviar { width: 100%; padding: 14px; background: #2563eb; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 12px; transition: .15s; }
-  .enviar:disabled { background: #94a3b8; cursor: not-allowed; }
-  .estado { text-align: center; margin-top: 14px; font-size: 14px; white-space: pre-wrap; }
-  .ok { color: #16a34a; }
-  .error { color: #dc2626; }
-  .debug { background: #fff3cd; color: #664d03; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 12px; white-space: pre-wrap; display: none; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 'Instrument Sans', system-ui, sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font: 600 2rem/1.1 'Fraunces', Georgia, serif; margin: 0 0 4px; }
+  .fecha { color: var(--muted); margin: 0 0 24px; text-transform: capitalize; }
+  .habito { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; transition: border-color .15s, background .15s; }
+  .habito.ok { border-color: var(--si); }
+  .habito.fail { border-color: var(--no); }
+  .habito.falta { border-color: var(--no); background: var(--no-bg); }
+  .nombre { font-weight: 600; font-size: 1.05rem; margin-bottom: 10px; }
+  .opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .opciones button { font: inherit; font-weight: 600; padding: 12px; border-radius: 10px; border: 2px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+  .opciones button[data-v="si"][aria-pressed="true"] { background: var(--si); border-color: var(--si); color: #fff; }
+  .opciones button[data-v="no"][aria-pressed="true"] { background: var(--no); border-color: var(--no); color: #fff; }
+  textarea { display: none; width: 100%; margin-top: 10px; padding: 10px; font: inherit; border: 2px solid var(--line); border-radius: 10px; resize: vertical; min-height: 72px; }
+  .habito.fail textarea { display: block; }
+  button:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  #guardar { width: 100%; margin-top: 8px; padding: 15px; font: inherit; font-weight: 600; font-size: 1.05rem; color: #fff; background: var(--ink); border: 0; border-radius: 12px; cursor: pointer; }
+  #guardar:disabled { opacity: .5; cursor: not-allowed; }
+  #estado { margin-top: 14px; padding: 12px 14px; border-radius: 10px; display: none; font-weight: 600; }
+  #estado.cargando { display: block; background: #E6EBF3; color: #2B4468; }
+  #estado.ok { display: block; background: var(--si-bg); color: var(--si); }
+  #estado.error { display: block; background: var(--no-bg); color: var(--no); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="contenedor">
-  <h1>🌱 Seguimiento de Hábitos</h1>
-  <div class="subtitulo" id="fechaHoy"></div>
-  <div id="listaHabitos">Cargando hábitos…</div>
-  <button class="enviar" id="btnEnviar" onclick="enviar()" disabled>Guardar registros</button>
-  <div class="estado" id="estado"></div>
-  <div class="debug" id="debug"></div>
-</div>
+<main>
+  <h1>Mis hábitos</h1>
+  <p class="fecha" id="fecha"></p>
+  <div id="lista"></div>
+  <button id="guardar" disabled>Guardar registros</button>
+  <div id="estado" role="status" aria-live="polite"></div>
+</main>
 
 <script>
-  const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbz1bmGbRg6rY1Ifa79Ij16RF03nJ_8h8lFof2ltD-XpcT7b01xHNRMrwPTybXkO1ahI/exec';
+  // ====== CONFIG ======
+  const API_URL = 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP';   // termina en /exec
+  const TOKEN   = 'CAMBIA-ESTA-CLAVE';                // igual a la de Code.gs
 
-  const EMOJIS = {
-    'Leer 15 min':         '📖',
-    'Leer Biblia 15 min':  '✝️',
-    'Hacer ejercicio':     '💪',
-    'Correr':              '🏃'
-  };
+  const $lista = document.getElementById('lista');
+  const $guardar = document.getElementById('guardar');
+  const $estado = document.getElementById('estado');
+  let habitos = [];            // [{nombre, valor: 'si'|'no'|null, motivo}]
 
-  let habitos = [];
-  const respuestas = {};
+  document.getElementById('fecha').textContent =
+    new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  document.getElementById('fechaHoy').textContent =
-    new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  function estado(tipo, texto) {
+    $estado.className = tipo || '';
+    $estado.textContent = texto || '';
+  }
 
-  // Cargar hábitos (GET)
-  fetch(URL_APPS_SCRIPT, { method: 'GET' })
-    .then(res => res.json())
-    .then(res => {
-      if (!res.ok) {
-        mostrarEstado('Error del servidor: ' + res.error, 'error');
-        document.getElementById('listaHabitos').innerHTML = '';
-        return;
-      }
-      renderHabitos(res.habitos);
-    })
-    .catch(err => {
-      mostrarEstado('❌ Error de conexión: ' + err.message, 'error');
-      mostrarDebug('Detalle: ' + err);
-      document.getElementById('listaHabitos').innerHTML = '';
+  function render() {
+    $lista.innerHTML = '';
+    habitos.forEach((h, i) => {
+      const box = document.createElement('div');
+      box.className = 'habito' + (h.valor === 'si' ? ' ok' : h.valor === 'no' ? ' fail' : '');
+      box.id = 'h' + i;
+
+      const nombre = document.createElement('div');
+      nombre.className = 'nombre';
+      nombre.textContent = h.nombre;
+
+      const ops = document.createElement('div');
+      ops.className = 'opciones';
+      [['si', 'Sí'], ['no', 'No']].forEach(([v, label]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.v = v;
+        b.textContent = label;
+        b.setAttribute('aria-pressed', h.valor === v);
+        b.addEventListener('click', () => { h.valor = v; render(); });
+        ops.appendChild(b);
+      });
+
+      const ta = document.createElement('textarea');
+      ta.placeholder = '¿Por qué no lo hiciste?';
+      ta.value = h.motivo;
+      ta.addEventListener('input', () => { h.motivo = ta.value; });
+
+      box.append(nombre, ops, ta);
+      $lista.appendChild(box);
     });
+  }
 
-  function renderHabitos(lista) {
-    habitos = lista;
-    const cont = document.getElementById('listaHabitos');
-    if (!habitos.length) {
-      cont.innerHTML = '<p>No hay hábitos activos en la hoja "Hábitos".</p>';
+  async function cargar() {
+    estado('cargando', 'Cargando hábitos…');
+    try {
+      const r = await fetch(`${API_URL}?token=${encodeURIComponent(TOKEN)}`);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      if (!d.habitos.length) throw new Error('No hay hábitos activos en la hoja "Hábitos".');
+      habitos = d.habitos.map(n => ({ nombre: n, valor: null, motivo: '' }));
+      render();
+      $guardar.disabled = false;
+      estado();
+    } catch (e) {
+      estado('error', 'No se pudieron cargar los hábitos: ' + e.message);
+    }
+  }
+
+  $guardar.addEventListener('click', async () => {
+    // Validación: todos marcados
+    let primerFalta = null;
+    habitos.forEach((h, i) => {
+      const box = document.getElementById('h' + i);
+      const falta = h.valor === null;
+      box.classList.toggle('falta', falta);
+      if (falta && !primerFalta) primerFalta = box;
+    });
+    if (primerFalta) {
+      estado('error', 'Marcá Sí o No en todos los hábitos antes de guardar.');
+      primerFalta.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    cont.innerHTML = habitos.map((h, i) => `
-      <div class="habito">
-        <div class="habito-header">
-          <div class="nombre">${EMOJIS[h] || '•'} ${h}</div>
-          <div class="toggle">
-            <button id="si-${i}" onclick="marcar(${i}, true)">Sí</button>
-            <button id="no-${i}" onclick="marcar(${i}, false)">No</button>
-          </div>
-        </div>
-        <div class="motivo" id="motivo-${i}">
-          <textarea id="txt-${i}" placeholder="¿Por qué no pudiste cumplirlo?"></textarea>
-        </div>
-      </div>
-    `).join('');
-    document.getElementById('btnEnviar').disabled = false;
-  }
 
-  function marcar(i, cumplido) {
-    const h = habitos[i];
-    respuestas[h] = { cumplido: cumplido, motivo: respuestas[h] ? respuestas[h].motivo : '' };
-    document.getElementById('si-' + i).className = cumplido ? 'activo-si' : '';
-    document.getElementById('no-' + i).className = !cumplido ? 'activo-no' : '';
-    document.getElementById('motivo-' + i).classList.toggle('visible', !cumplido);
-  }
-
-  function enviar() {
-    // Validar y construir payload
-    for (const h of habitos) {
-      if (!respuestas[h]) {
-        mostrarEstado('Falta marcar: ' + h, 'error');
-        return;
-      }
-      if (!respuestas[h].cumplido) {
-        const i = habitos.indexOf(h);
-        respuestas[h].motivo = document.getElementById('txt-' + i).value.trim();
-      }
+    $guardar.disabled = true;
+    estado('cargando', 'Guardando…');
+    try {
+      const r = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
+        body: JSON.stringify({
+          token: TOKEN,
+          registros: habitos.map(h => ({
+            habito: h.nombre,
+            cumplido: h.valor === 'si',
+            motivo: h.valor === 'no' ? h.motivo.trim() : ''
+          }))
+        })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      estado('ok', `Guardado: ${d.guardados} registros (${d.fecha} ${d.hora}).`);
+      habitos.forEach(h => { h.valor = null; h.motivo = ''; });
+      render();
+    } catch (e) {
+      estado('error', 'No se pudo guardar: ' + e.message + '. Tus respuestas siguen acá, probá de nuevo.');
+    } finally {
+      $guardar.disabled = false;
     }
+  });
 
-    const payload = habitos.map(h => ({
-      habito: h,
-      cumplido: respuestas[h].cumplido,
-      motivo: respuestas[h].motivo
-    }));
-
-    const btn = document.getElementById('btnEnviar');
-    btn.disabled = true;
-    btn.textContent = 'Guardando...';
-    mostrarEstado('', '');
-    document.getElementById('debug').style.display = 'none';
-
-    fetch(URL_APPS_SCRIPT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ respuestas: payload })
-    })
-    .then(res => res.json())
-    .then(res => {
-      if (res.ok) {
-        mostrarEstado('✅ Guardado correctamente (' + res.filas + ' registros)', 'ok');
-        btn.textContent = 'Guardado';
-      } else {
-        mostrarEstado('Error del servidor: ' + res.error, 'error');
-        btn.disabled = false;
-        btn.textContent = 'Guardar registros';
-      }
-    })
-    .catch(err => {
-      mostrarEstado('❌ Error al guardar: ' + err.message, 'error');
-      mostrarDebug('Detalle: ' + err);
-      btn.disabled = false;
-      btn.textContent = 'Guardar registros';
-    });
-  }
-
-  function mostrarEstado(msg, clase) {
-    const el = document.getElementById('estado');
-    el.textContent = msg;
-    el.className = 'estado ' + (clase || '');
-  }
-
-  function mostrarDebug(msg) {
-    const d = document.getElementById('debug');
-    d.style.display = 'block';
-    d.textContent = msg;
-  }
+  cargar();
 </script>
 </body>
 </html>
